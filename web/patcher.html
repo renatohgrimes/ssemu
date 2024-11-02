@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client Patcher</title>
+    <script>
+        function applyPatches(input) {
+            const file = input.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                const arrayBuffer = event.target.result;
+
+                // bypass localization args
+                fillNop(arrayBuffer, 0x0042a67a, 7);
+                setInstructions(arrayBuffer, 0x0042a681, [0x75]);
+                setInstructions(arrayBuffer, 0x0042a68b, [0xE0, 0x99, 0x9A]);
+                setInstructions(arrayBuffer, 0x0042a6ab, [0x00]);
+                setInstructions(arrayBuffer, 0x0042a6b7, [0x75]);
+                setInstructions(arrayBuffer, 0x0042a6e1, [0x00]);
+                setInstructions(arrayBuffer, 0x0042a6ed, [0x74]);
+                setInstructions(arrayBuffer, 0x0042a6f2, [0x03]);
+
+                // bypass hackshield
+                setInstructions(arrayBuffer, 0x0042820c, [0xEB]);
+                setInstructions(arrayBuffer, 0x0042855a, [0xE9, 0x77, 0x01, 0x00, 0x00, 0x00]);
+                setInstructions(arrayBuffer, 0x0042a7f2, [0xEB]);
+                setInstructions(arrayBuffer, 0x0042a807, [0xEB]);
+                setInstructions(arrayBuffer, 0x0042a81c, [0xEB]);
+                setInstructions(arrayBuffer, 0x005a9739, [0x69, 0x67, 0x6E, 0x6F, 0x72, 0x65, 0x64]);
+                setInstructions(arrayBuffer, 0x005a9795, [0x69, 0x67, 0x6E, 0x6F, 0x72, 0x65, 0x64]);
+
+                // enable multiclient
+                setInstructions(arrayBuffer, 0x00429757, [0xEB]);
+
+                // bypass packet encryption - except game server
+                setInstructions(arrayBuffer, 0x0010f8d0, [0xC2, 0x14, 0x00]);
+                setInstructions(arrayBuffer, 0x0010f980, [0xC2, 0x14, 0x00]);
+                
+                // fix relay port
+                setInstructions(arrayBuffer, 0x002f232f, [0x6D, 0x6D]);
+
+                // disable client_profile.xml
+                fillNop(arrayBuffer, 0x002c507b, 5);
+
+                // required username length = 4
+                setInstructions(arrayBuffer, 0x0045a2fd, [0x04]);
+
+                // required password length = 4
+                setInstructions(arrayBuffer, 0x0045a320, [0x04]);
+
+                // download modified bin
+                const modifiedBlob = new Blob([arrayBuffer], { type: file.type });
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(modifiedBlob);
+                downloadLink.download = file.name;
+                downloadLink.click();
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function setInstructions(arrayBuffer, address, newValues) {
+            const dataView = new DataView(arrayBuffer);
+            for (let i = 0; i < newValues.length; i++) {
+                dataView.setUint8(address + i, newValues[i]);
+            }
+        }
+
+        function fillNop(arrayBuffer, address, count) {
+            for (let i = 0; i < count; i++) {
+                setInstructions(arrayBuffer, address + i, [0x90])
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Client Patcher</h1>
+    <input type="file" id="fileInput" accept=".exe">
+    <br><br>
+    <button onclick="applyPatches(document.getElementById('fileInput'))">Patch</button>
+</body>
+</html>

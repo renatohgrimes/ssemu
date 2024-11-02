@@ -1,0 +1,53 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: otelcol.ssemu:4317
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "ssemu"
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["server.ssemu:9000"]
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger.ssemu:4317
+    tls:
+      insecure: true
+
+  prometheusremotewrite:
+    endpoint: "http://prometheus.ssemu:9090/api/v1/write"
+    target_info:
+      enabled: true
+
+connectors:
+  spanmetrics:
+    namespace: ssemu
+    histogram:
+      explicit:
+        buckets: [100us, 500us, 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s]
+    dimensions_cache_size: 1000
+    aggregation_temporality: "AGGREGATION_TEMPORALITY_CUMULATIVE"    
+    metrics_flush_interval: 15s
+    metrics_expiration: 5m
+    events:
+      enabled: true
+      dimensions:
+        - name: exception.type
+        - name: exception.message
+    resource_metrics_key_attributes:
+      - service.name
+      - telemetry.sdk.language
+      - telemetry.sdk.name
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/jaeger, spanmetrics]
+    metrics:
+      receivers: [prometheus, spanmetrics]
+      exporters: [prometheusremotewrite]
